@@ -1,0 +1,15 @@
+# Mac system files
+.DS_Store
+
+# Node modules (if any Node projects)
+node_modules/
+
+# Logs
+logs
+*.log
+
+# Temporary files
+*.tmp
+
+# VS Code settings (optional)
+.vscode/
