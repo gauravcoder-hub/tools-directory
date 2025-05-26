@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Free online meme face swap tool. Easily replace faces in memes and share funny results. No sign-up needed." />
+  <meta name="keywords" content="meme face swap, face replacer, meme editor, funny meme maker, viral meme tool, shareable meme creator" />
+  <meta property="og:title" content="Free Meme Face Swap Tool" />
+  <meta property="og:description" content="Easily swap faces in meme images with this fun and simple tool. Perfect for laughs and viral content." />
+  <meta property="og:image" content="https://yourdomain.com/preview.jpg" />
+  <title>Free Meme Face Swap Tool | Swap Faces in Memes Instantly</title>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+</head>
+<body class="bg-gray-50 text-gray-800 font-sans">
+  <header class="bg-white shadow p-4">
+    <div class="max-w-3xl mx-auto">
+      <h1 class="text-2xl font-bold">🎭 Meme Face Swap Tool</h1>
+      <p class="text-sm text-gray-600">Create funny memes by replacing faces. Simple. Fast. Free.</p>
+    </div>
+  </header>
+
+  <main class="max-w-3xl mx-auto px-4 py-6">
+    <div class="mb-6 h-20 bg-gray-200 flex items-center justify-center text-gray-500 text-sm">[Top Ad Placeholder]</div>
+
+    <section class="bg-white p-4 rounded shadow">
+      <p class="mb-4 text-gray-700 text-sm">Upload a meme and a face image. You can drag and place the face anywhere on the meme. Great for laughs, totally free!</p>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label class="block mb-1 text-sm font-medium">Meme Image</label>
+          <input type="file" accept="image/*" id="memeInput" class="block w-full border rounded px-2 py-1 text-sm">
+        </div>
+        <div>
+          <label class="block mb-1 text-sm font-medium">Your Face Image</label>
+          <input type="file" accept="image/*" id="faceInput" class="block w-full border rounded px-2 py-1 text-sm">
+        </div>
+      </div>
+
+      <button id="swapBtn" class="mt-4 bg-blue-600 hover:bg-blue-700 text-white text-sm px-4 py-2 rounded">Swap & Laugh 😄</button>
+
+      <div class="mt-6 relative">
+        <canvas id="outputCanvas" class="w-full border rounded cursor-move"></canvas>
+        <a id="downloadBtn" class="hidden mt-4 inline-block bg-green-600 hover:bg-green-700 text-white text-sm px-4 py-2 rounded" download="meme-face-swap.png">Download Meme</a>
+      </div>
+    </section>
+
+    <div class="mt-8 h-20 bg-gray-200 flex items-center justify-center text-gray-500 text-sm">[Bottom Ad Placeholder]</div>
+  </main>
+
+  <footer class="bg-white text-center text-xs text-gray-500 py-4 mt-8">
+    © 2025 Meme Tools. Share & laugh responsibly 😄
+  </footer>
+
+  <script>
+    const memeInput = document.getElementById('memeInput');
+    const faceInput = document.getElementById('faceInput');
+    const swapBtn = document.getElementById('swapBtn');
+    const canvas = document.getElementById('outputCanvas');
+    const ctx = canvas.getContext('2d');
+    const downloadBtn = document.getElementById('downloadBtn');
+
+    let memeImg = null;
+    let faceImg = null;
+    let facePos = { x: 100, y: 100, size: 100 };
+    let dragging = false;
+
+    memeInput.addEventListener('change', (e) => loadImage(e.target.files[0], img => memeImg = img));
+    faceInput.addEventListener('change', (e) => loadImage(e.target.files[0], img => faceImg = img));
+
+    canvas.addEventListener('mousedown', e => {
+      const rect = canvas.getBoundingClientRect();
+      const mx = e.clientX - rect.left;
+      const my = e.clientY - rect.top;
+      if (mx >= facePos.x && mx <= facePos.x + facePos.size && my >= facePos.y && my <= facePos.y + facePos.size) {
+        dragging = true;
+      }
+    });
+
+    canvas.addEventListener('mouseup', () => dragging = false);
+    canvas.addEventListener('mousemove', e => {
+      if (!dragging) return;
+      const rect = canvas.getBoundingClientRect();
+      facePos.x = e.clientX - rect.left - facePos.size / 2;
+      facePos.y = e.clientY - rect.top - facePos.size / 2;
+      drawCanvas();
+    });
+
+    swapBtn.addEventListener('click', () => {
+      if (!memeImg || !faceImg) return alert('Please upload both images.');
+      canvas.width = memeImg.width;
+      canvas.height = memeImg.height;
+      facePos.size = memeImg.width / 4;
+      facePos.x = (memeImg.width - facePos.size) / 2;
+      facePos.y = (memeImg.height - facePos.size) / 2;
+      drawCanvas();
+      downloadBtn.classList.remove('hidden');
+    });
+
+    downloadBtn.addEventListener('click', () => {
+      const link = downloadBtn;
+      link.href = canvas.toDataURL('image/png');
+    });
+
+    function drawCanvas() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(memeImg, 0, 0);
+      ctx.drawImage(faceImg, facePos.x, facePos.y, facePos.size, facePos.size);
+    }
+
+    function loadImage(file, callback) {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const img = new Image();
+        img.onload = () => callback(img);
+        img.src = reader.result;
+      };
+      reader.readAsDataURL(file);
+    }
+  </script>
+</body>
+</html>

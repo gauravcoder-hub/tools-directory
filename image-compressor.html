@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en" >
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="Image Compressor Tool with live preview and download feature." />
+  <title>Image Compressor</title>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet" />
+  <style>
+    #dropArea {
+      border: 2px dashed #a0aec0;
+      border-radius: 0.5rem;
+      padding: 2rem;
+      text-align: center;
+      color: #718096;
+      cursor: pointer;
+      transition: background-color 0.2s ease;
+      user-select: none;
+    }
+    #dropArea.dragover {
+      background-color: #bee3f8;
+      border-color: #3182ce;
+      color: #2c5282;
+    }
+  </style>
+</head>
+<body class="bg-gray-50 text-gray-800 font-sans">
+
+  <header class="bg-white shadow p-4 sticky top-0 z-50">
+    <div class="max-w-4xl mx-auto flex items-center justify-between">
+      <h1 class="text-2xl font-bold">Image Compressor</h1>
+    </div>
+  </header>
+
+  <main class="max-w-4xl mx-auto px-4 py-6">
+
+    <!-- Upload Section with Drag & Drop -->
+    <section class="bg-white p-6 rounded shadow space-y-6">
+      <div
+        id="dropArea"
+        role="button"
+        tabindex="0"
+        aria-label="Upload Image (or drag & drop here)"
+      >
+        <label for="imageInput" class="cursor-pointer text-sm font-medium block mb-2">Upload Image (or drag & drop here)</label>
+        <input
+          type="file"
+          id="imageInput"
+          accept="image/jpeg,image/png,image/webp"
+          class="hidden"
+        />
+        <p class="text-xs text-gray-500">Supported formats: JPEG, PNG, WebP</p>
+      </div>
+
+      <!-- Compression Controls -->
+      <div class="space-y-2">
+        <label for="qualityRange" class="block font-semibold">Compression Quality</label>
+        <input
+          type="range"
+          id="qualityRange"
+          min="0.1"
+          max="1"
+          step="0.05"
+          value="0.8"
+          class="w-full"
+          />
+        <div class="flex justify-between text-xs text-gray-500">
+          <span>Low Quality</span>
+          <span>High Quality</span>
+        </div>
+
+        <!-- Size Info -->
+        <div class="flex justify-between text-sm font-mono">
+          <div>Original Size: <span id="originalSize">-</span></div>
+          <div>Compressed Size: <span id="compressedSize">-</span></div>
+        </div>
+      </div>
+
+      <!-- Preview Section -->
+      <div class="border rounded p-4">
+        <p class="mb-2 font-semibold">Preview</p>
+        <canvas id="previewCanvas" class="w-full border rounded bg-gray-100" aria-label="Compressed image preview"></canvas>
+      </div>
+
+      <!-- Buttons -->
+      <div class="flex justify-center space-x-4">
+        <button
+          id="downloadBtn"
+          disabled
+          class="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-6 py-2 rounded shadow disabled:opacity-50 disabled:cursor-not-allowed"
+          aria-disabled="true"
+        >
+          Download Compressed Image
+        </button>
+        <button
+          id="clearBtn"
+          class="bg-gray-300 hover:bg-gray-400 text-gray-700 font-semibold px-6 py-2 rounded shadow"
+        >
+          Clear
+        </button>
+      </div>
+
+      <!-- Loading Indicator -->
+      <p id="loadingText" class="text-center text-blue-600 font-semibold hidden" role="alert" aria-live="assertive">Compressing...</p>
+    </section>
+  </main>
+
+  <footer class="bg-white text-center text-xs text-gray-500 py-4 mt-8">
+    © 2025 Image Tools. All rights reserved.
+  </footer>
+
+  <script>
+    const imageInput = document.getElementById('imageInput');
+    const previewCanvas = document.getElementById('previewCanvas');
+    const ctx = previewCanvas.getContext('2d');
+    const qualityRange = document.getElementById('qualityRange');
+    const originalSizeSpan = document.getElementById('originalSize');
+    const compressedSizeSpan = document.getElementById('compressedSize');
+    const downloadBtn = document.getElementById('downloadBtn');
+    const clearBtn = document.getElementById('clearBtn');
+    const loadingText = document.getElementById('loadingText');
+    const dropArea = document.getElementById('dropArea');
+
+    let originalImage = null;
+    let compressedBlob = null;
+    let originalFileSize = 0;
+    let originalMimeType = 'image/jpeg';
+
+    const MAX_CANVAS_SIZE = 1024; // Max width/height for canvas
+
+    // Format bytes to human-readable string
+    function formatBytes(bytes) {
+      if (bytes === 0) return '0 Bytes';
+      const k = 1024;
+      const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+      const i = Math.floor(Math.log(bytes) / Math.log(k));
+      return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    }
+
+    // Handle the image file (upload or drag & drop)
+    function handleFile(file) {
+      if (!file || !file.type.startsWith('image/')) {
+        alert('Please upload a valid image file.');
+        return;
+      }
+      originalFileSize = file.size;
+      originalMimeType = file.type;
+      originalSizeSpan.textContent = formatBytes(file.size);
+      compressedSizeSpan.textContent = '-';
+      downloadBtn.disabled = true;
+      downloadBtn.setAttribute('aria-disabled', 'true');
+
+      const reader = new FileReader();
+      reader.onload = () => {
+        const img = new Image();
+        img.onload = () => {
+          originalImage = img;
+          // Resize large images with aspect ratio preserved
+          const scale = Math.min(MAX_CANVAS_SIZE / img.width, MAX_CANVAS_SIZE / img.height, 1);
+          previewCanvas.width = img.width * scale;
+          previewCanvas.height = img.height * scale;
+          ctx.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
+          ctx.drawImage(img, 0, 0, previewCanvas.width, previewCanvas.height);
+          compressAndPreview();
+        };
+        img.onerror = () => {
+          alert('Failed to load image. Please try another file.');
+          originalImage = null;
+          compressedBlob = null;
+        }
+        img.src = reader.result;
+      };
+      reader.readAsDataURL(file);
+    }
+
+    // File input change event
+    imageInput.addEventListener('change', (e) => {
+      if (e.target.files.length) handleFile(e.target.files[0]);
+    });
+
+    // Drag & drop event handlers
+    dropArea.addEventListener('dragover', e => {
+      e.preventDefault();
+      dropArea.classList.add('dragover');
+    });
+    dropArea.addEventListener('dragleave', e => {
+      e.preventDefault();
+      dropArea.classList.remove('dragover');
+    });
+    dropArea.addEventListener('drop', e => {
+      e.preventDefault();
+      dropArea.classList.remove('dragover');
+      if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
+    });
+
+    // Support keyboard upload via Enter or Space on dropArea
+    dropArea.addEventListener('keydown', e => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        imageInput.click();
+      }
+    });
+
+    // Compress and preview the image according to quality slider
+    function compressAndPreview() {
+      if (!originalImage) return;
+      loadingText.classList.remove('hidden');
+
+      const quality = parseFloat(qualityRange.value);
+
+      // Create temporary canvas for compression
+      const tempCanvas = document.createElement('canvas');
+      tempCanvas.width = previewCanvas.width;
+      tempCanvas.height = previewCanvas.height;
+      const tempCtx = tempCanvas.getContext('2d');
+      tempCtx.drawImage(originalImage, 0, 0, tempCanvas.width, tempCanvas.height);
+
+      // Decide output format for compression
+      // Use original mime type if supported; otherwise fallback to jpeg
+      let outputMimeType = 'image/jpeg';
+      if (originalMimeType === 'image/png') {
+        // PNG does not support quality param, so use PNG but no quality compression
+        outputMimeType = 'image/png';
+      } else if (originalMimeType === 'image/webp') {
+        outputMimeType = 'image/webp';
+      } else if (originalMimeType === 'image/jpeg') {
+        outputMimeType = 'image/jpeg';
+      }
+
+      // toBlob quality param only works for jpeg and webp
+      const qualitySupported = (outputMimeType === 'image/jpeg' || outputMimeType === 'image/webp');
+
+      tempCanvas.toBlob(
+        (blob) => {
+          loadingText.classList.add('hidden');
+          if (!blob) {
+            alert('Compression failed.');
+            return;
+          }
+
+          compressedBlob = blob;
+          compressedSizeSpan.textContent = formatBytes(blob.size);
+
+          const url = URL.createObjectURL(blob);
+          const compressedImg = new Image();
+          compressedImg.onload = () => {
+            previewCanvas.width = compressedImg.width;
+            previewCanvas.height = compressedImg.height;
+            ctx.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
+            ctx.drawImage(compressedImg, 0, 0);
+            URL.revokeObjectURL(url);
+          };
+          compressedImg.src = url;
+
+          downloadBtn.disabled = false;
+          downloadBtn.setAttribute('aria-disabled', 'false');
+        },
+        outputMimeType,
+        qualitySupported ? quality : undefined
+      );
+    }
+
+    // Quality slider change event
+    qualityRange.addEventListener('input', () => {
+      if (originalImage) compressAndPreview();
+    });
+
+    // Download compressed image
+    downloadBtn.addEventListener('click', () => {
+      if (!compressedBlob) return;
+      const a = document.createElement('a');
+
+      // Use appropriate file extension based on compressed blob type
+      let ext = '.jpg';
+      if (compressedBlob.type === 'image/png') ext = '.png';
+      else if (compressedBlob.type === 'image/webp') ext = '.webp';
+
+      a.href = URL.createObjectURL(compressedBlob);
+      a.download = 'compressed-image' + ext;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+
+      // Clean up the object URL after download
+      setTimeout(() => URL.revokeObjectURL(a.href), 100);
+    });
+
+    // Clear button resets everything
+    clearBtn.addEventListener('click', () => {
+      originalImage = null;
+      compressedBlob = null;
+      originalSizeSpan.textContent = '-';
+      compressedSizeSpan.textContent = '-';
+      downloadBtn.disabled = true;
+      downloadBtn.setAttribute('aria-disabled', 'true');
+      ctx.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
+      imageInput.value = '';
+    });
+  </script>
+</body>
+</html>
